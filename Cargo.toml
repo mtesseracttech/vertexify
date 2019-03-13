@@ -1,0 +1,10 @@
+[package]
+name = "vertexify"
+version = "0.1.0"
+authors = ["MT <mtesseracttech@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+regex = "*"
+lazy_static = "*"
+straal = {git = "https://github.com/mtesseracttech/straal" }
