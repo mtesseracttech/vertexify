@@ -1,12 +1,13 @@
-# vertexify
-Model Loader for use with Straal and Glium
+# Vertexify
+Model Loader for use with Straal and Glium. 
+Attempts to provide a comfortable, idiomatic interface to load (and maybe in the future write) models.
 
-Supported file types:
+## Supported file types:
 
-obj
+* obj
 
-Maybe in the future:
+## TODO:
 
-gltf
-fbx
-stl
+* gltf
+* fbx
+* stl
