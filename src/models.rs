@@ -1,32 +1,39 @@
-extern crate regex;
+extern crate glium;
 
 use std::collections::HashMap;
 use std::error;
-use std::error::Error;
 use std::fmt;
 use std::fs::File;
-use std::hash::Hash;
 use std::io;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::vec::*;
 
-use regex::Regex;
-
 use super::*;
 
 #[derive(Debug)]
-pub struct WavefrontObjModel {
+pub struct ObjModel {
     indices: Vec<usize>,
-    vertices: Vec<ModelVertex>,
+    vertices: Vec<straal::Vec3>,
+    normals: Vec<straal::Vec3>,
+    uvs: Vec<straal::Vec2>,
 }
 
 #[derive(Hash, PartialEq, Eq)]
 struct FaceIndexTriplet {
     pub v: usize,
-    pub uv: usize,
-    pub n: usize,
+    pub n: Option<usize>,
+    pub uv: Option<usize>,
 }
+
+#[derive(Debug)]
+enum TripletType {
+    VertexOnly,
+    VertexTexture,
+    VertexNormal,
+    VertexTextureNormal,
+}
+
 
 #[derive(Debug)]
 pub struct ModelLoadingError {
@@ -42,17 +49,11 @@ impl fmt::Display for models::ModelLoadingError {
 }
 
 impl error::Error for models::ModelLoadingError {
-    fn description(&self) -> &str {
-        "Obj Error"
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        None
-    }
+    fn description(&self) -> &str { "Obj Error" }
 }
 
-impl WavefrontObjModel {
-    pub fn load_from_file(file_path: &str) -> Result<WavefrontObjModel, ModelLoadingError> {
+impl ObjModel {
+    pub fn load_from_file(file_path: &str) -> Result<ObjModel, ModelLoadingError> {
         let file: File = match File::open(file_path) {
             Ok(file) => file,
             Err(e) => {
@@ -65,125 +66,75 @@ impl WavefrontObjModel {
             }
         };
 
-        let mut model = WavefrontObjModel {
-            indices: Vec::new(),
-            vertices: Vec::new(),
-        };
-
-        let mut mapped_triplets: HashMap<FaceIndexTriplet, usize> = HashMap::new();
-
         let mut vertices: Vec<straal::Vec3> = Vec::new();
         let mut normals: Vec<straal::Vec3> = Vec::new();
         let mut uvs: Vec<straal::Vec2> = Vec::new();
+        let mut faces: Vec<FaceIndexTriplet> = Vec::new();
 
         let mut line_no = 1;
         for line in BufReader::new(file).lines() {
             match line {
                 Ok(line) => {
-                    if line.len() >= 10 {
+                    if !line.is_empty() {
                         let tokens: Vec<&str> = line.split_whitespace().collect();
                         if !tokens.is_empty() {
                             match tokens[0] {
                                 "v" => {
-                                    //Vertex position
+                                    //Parse vertex
+                                    //v x y z
                                     let mut parsed = tokens.iter().skip(1).flat_map(|s: &&str| s.parse());
                                     vertices.push(straal::Vec3 {
                                         x: parsed.next().unwrap(),
                                         y: parsed.next().unwrap(),
                                         z: parsed.next().unwrap(),
-                                    })
+                                    });
                                 }
                                 "vn" => {
-                                    //Vertex normal
+                                    //Parse vertex normal
+                                    //vn x y z
                                     let mut parsed = tokens.iter().skip(1).flat_map(|s: &&str| s.parse());
                                     normals.push(straal::Vec3 {
                                         x: parsed.next().unwrap(),
                                         y: parsed.next().unwrap(),
                                         z: parsed.next().unwrap(),
-                                    })
+                                    });
                                 }
                                 "vt" => {
-                                    //Vertex texture coordinate
+                                    //Parse vertex texture coordinate
+                                    //vt x y
                                     let mut parsed = tokens.iter().skip(1).flat_map(|s: &&str| s.parse());
                                     uvs.push(straal::Vec2 {
                                         x: parsed.next().unwrap(),
                                         y: parsed.next().unwrap(),
-                                    })
+                                    });
                                 }
                                 "f" => {
-                                    let mut triplets: Vec<&str> = tokens.iter().skip(1).flat_map(|s: &&str| s.split("/")).collect();
-                                    match triplets.len() {
-                                        3 => {
-                                            //Only indices for the positions, no normals or texture coordinates
-                                            let mut parsed = triplets.iter().flat_map(|s: &&str| s.parse());
-                                            for i in 0..3 {
-                                                let face_index_triplet = FaceIndexTriplet {
-                                                    v: parsed.next().unwrap(),
-                                                    uv: 0,
-                                                    n: 0,
-                                                };
-
-                                                match mapped_triplets.get(&face_index_triplet) {
-                                                    None => {
-                                                        let index = mapped_triplets.len();
-
-                                                        model.indices.push(index);
-                                                        model.vertices.push(ModelVertex {
-                                                            position: vertices[face_index_triplet.v - 1],
-                                                            normal: normals[face_index_triplet.n - 1],
-                                                            uvs: uvs[face_index_triplet.uv - 1],
-                                                        });
-
-                                                        mapped_triplets.insert(face_index_triplet, index);
-                                                    }
-                                                    Some(i) => {
-                                                        model.indices.push(*i);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        9 => {
-                                            //Support for all 3 vertex types
-                                            let mut parsed = triplets.iter().flat_map(|s: &&str| s.parse());
-                                            for i in 0..3 {
-                                                let face_index_triplet = FaceIndexTriplet {
-                                                    v: parsed.next().unwrap(),
-                                                    uv: parsed.next().unwrap(),
-                                                    n: parsed.next().unwrap(),
-                                                };
-
-                                                match mapped_triplets.get(&face_index_triplet) {
-                                                    None => {
-                                                        let index = mapped_triplets.len();
-
-                                                        model.indices.push(index);
-                                                        model.vertices.push(ModelVertex {
-                                                            position: vertices[face_index_triplet.v - 1],
-                                                            normal: normals[face_index_triplet.n - 1],
-                                                            uvs: uvs[face_index_triplet.uv - 1],
-                                                        });
-
-                                                        mapped_triplets.insert(face_index_triplet, index);
-                                                    }
-                                                    Some(i) => {
-                                                        model.indices.push(*i);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        (n) => {
-                                            return Err(ModelLoadingError {
-                                                file_path: file_path.to_string(),
-                                                message: format!("Unknown face index count {} on line: {}", n, line),
-                                                buffer_reader_error: None,
-                                            });
-                                        }
-                                    }
+                                    //Parse polygon face
+                                    //f v1 v2 v3
+                                    //f v1/vt1 v2/vt2 v3/vt3
+                                    //f v1//vn1 v2//vn2 v3//vn3
+                                    //f v1/vt1/vn1 v2/vt2/vn2 v3/vt3/vn3
+                                    faces.append(&mut ObjModel::parse_face_line(&tokens));
                                 }
-                                "mtllib" => { /* not sure what to do with this yet*/ }
-                                "usemtl" => { /* not sure what to do with this yet*/ }
-                                "#" => { /* comment, not an error, so it's ignored */ }
-                                (token) => {
+                                "#" => {
+                                    //Comment, not much to do here
+                                }
+                                "mtllib" => {
+                                    //Material file location
+                                }
+                                "usemtl" => {
+                                    //Use material for the element following this statement
+                                }
+                                "o" => {
+                                    //Object name
+                                }
+                                "g" => {
+                                    //Group name
+                                }
+                                "s" => {
+                                    //Smoothing enable/disable for smoothing group
+                                }
+                                token => {
                                     return Err(ModelLoadingError {
                                         file_path: file_path.to_string(),
                                         message: format!("Could not identify token {} for line: {}", token, line),
@@ -204,7 +155,103 @@ impl WavefrontObjModel {
             }
             line_no += 1;
         }
-        Ok(model)
+
+        let mut model = ObjModel {
+            indices: Vec::new(),
+            vertices: Vec::new(),
+            normals: Vec::new(),
+            uvs: Vec::new(),
+        };
+
+        let mut mapped_triplets: HashMap<FaceIndexTriplet, usize> = HashMap::new();
+
+
+        for face_index_triplet in faces {
+            match mapped_triplets.get(&face_index_triplet) {
+                None => {
+                    let index = mapped_triplets.len();
+
+                    model.indices.push(index);
+                    model.vertices.push(vertices[face_index_triplet.v - 1]);
+
+                    if face_index_triplet.uv.is_some() {
+                        model.uvs.push(uvs[face_index_triplet.uv.unwrap() - 1]);
+                    }
+                    if face_index_triplet.n.is_some() {
+                        model.normals.push(normals[face_index_triplet.n.unwrap() - 1]);
+                    }
+
+                    mapped_triplets.insert(face_index_triplet, index);
+                }
+                Some(i) => {
+                    model.indices.push(*i);
+                }
+            }
+        }
+
+        return Ok(model);
+    }
+
+    fn parse_face_line(tokens: &Vec<&str>) -> Vec<FaceIndexTriplet> {
+        let triplet_vec: Vec<&str> = tokens.iter().skip(1).flat_map(|s: &&str| s.split("/")).collect();
+        let mut parsed = triplet_vec.iter().flat_map(|s: &&str| s.parse());
+
+        let mut triangle = Vec::new();
+        match ObjModel::get_face_triplet_type(&triplet_vec) {
+            TripletType::VertexOnly => {
+                for _i in 0..3 {
+                    triangle.push(FaceIndexTriplet {
+                        v: parsed.next().unwrap(),
+                        uv: None,
+                        n: None,
+                    });
+                }
+            }
+            TripletType::VertexTexture => {
+                for _i in 0..3 {
+                    triangle.push(FaceIndexTriplet {
+                        v: parsed.next().unwrap(),
+                        uv: Some(parsed.next().unwrap()),
+                        n: None,
+                    });
+                }
+            }
+            TripletType::VertexNormal => {
+                //Need to filter the empty entries out
+                let mut parsed = triplet_vec.iter().skip_while(|s| s.is_empty()).flat_map(|s| s.parse());
+                for _i in 0..3 {
+                    triangle.push(FaceIndexTriplet {
+                        v: parsed.next().unwrap(),
+                        uv: None,
+                        n: Some(parsed.next().unwrap()),
+                    });
+                }
+            }
+            TripletType::VertexTextureNormal => {
+                for _i in 0..3 {
+                    triangle.push(FaceIndexTriplet {
+                        v: parsed.next().unwrap(),
+                        uv: Some(parsed.next().unwrap()),
+                        n: Some(parsed.next().unwrap()),
+                    });
+                }
+            }
+        }
+        triangle
+    }
+
+    fn get_face_triplet_type(triplets: &Vec<&str>) -> TripletType {
+        match triplets.len() {
+            3 => TripletType::VertexOnly,
+            6 => TripletType::VertexTexture,
+            9 => {
+                match triplets[1].len() {
+                    0 => TripletType::VertexNormal,
+                    _ => TripletType::VertexTextureNormal
+                }
+            }
+            _ => panic!("Unknown face triplet type encountered")
+        }
     }
 }
 
