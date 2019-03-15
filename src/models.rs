@@ -300,7 +300,7 @@ impl ObjModel {
         }
     }
 
-    pub fn draw<U>(self, target: &mut glium::Frame, program: &glium::Program, uniforms: &U, draw_params: &glium::DrawParameters) where U: glium::uniforms::Uniforms {
+    pub fn draw<U>(&self, target: &mut glium::Frame, program: &glium::Program, uniforms: &U, draw_params: &glium::DrawParameters) where U: glium::uniforms::Uniforms {
         let has_uvs = !self.uvs.is_empty();
         let has_normals = !self.normals.is_empty();
 
