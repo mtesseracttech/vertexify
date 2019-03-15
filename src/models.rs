@@ -1,5 +1,3 @@
-extern crate glium;
-
 use std::collections::HashMap;
 use std::error;
 use std::fmt;
@@ -13,11 +11,39 @@ use super::*;
 
 #[derive(Debug)]
 pub struct ObjModel {
-    indices: Vec<usize>,
-    vertices: Vec<straal::Vec3>,
-    normals: Vec<straal::Vec3>,
-    uvs: Vec<straal::Vec2>,
+    indices: Vec<u32>,
+    vertices: Vec<Vertex>,
+    normals: Vec<Normal>,
+    uvs: Vec<UV>,
+    buffers: OpenGLBuffers,
 }
+
+#[derive(Debug)]
+pub struct OpenGLBuffers {
+    pub indices: Option<glium::IndexBuffer<u32>>,
+    pub vertices: Option<glium::VertexBuffer<Vertex>>,
+    pub normals: Option<glium::VertexBuffer<Normal>>,
+    pub uvs: Option<glium::VertexBuffer<UV>>,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Vertex {
+    position: straal::Vec3,
+}
+implement_vertex!(Vertex, position);
+
+#[derive(Copy, Clone, Debug)]
+pub struct Normal {
+    normal: straal::Vec3,
+}
+implement_vertex!(Normal, normal);
+
+#[derive(Copy, Clone, Debug)]
+pub struct UV {
+    tex_coords: straal::Vec2,
+}
+implement_vertex!(UV, tex_coords);
+
 
 #[derive(Hash, PartialEq, Eq)]
 struct FaceIndexTriplet {
@@ -161,24 +187,30 @@ impl ObjModel {
             vertices: Vec::new(),
             normals: Vec::new(),
             uvs: Vec::new(),
+            buffers: OpenGLBuffers {
+                indices: None,
+                vertices: None,
+                normals: None,
+                uvs: None,
+            },
         };
 
-        let mut mapped_triplets: HashMap<FaceIndexTriplet, usize> = HashMap::new();
+        let mut mapped_triplets: HashMap<FaceIndexTriplet, u32> = HashMap::new();
 
 
         for face_index_triplet in faces {
             match mapped_triplets.get(&face_index_triplet) {
                 None => {
-                    let index = mapped_triplets.len();
+                    let index = mapped_triplets.len() as u32;
 
                     model.indices.push(index);
-                    model.vertices.push(vertices[face_index_triplet.v - 1]);
+                    model.vertices.push(Vertex { position: vertices[face_index_triplet.v - 1] });
 
                     if face_index_triplet.uv.is_some() {
-                        model.uvs.push(uvs[face_index_triplet.uv.unwrap() - 1]);
+                        model.uvs.push(UV { tex_coords: uvs[face_index_triplet.uv.unwrap() - 1] });
                     }
                     if face_index_triplet.n.is_some() {
-                        model.normals.push(normals[face_index_triplet.n.unwrap() - 1]);
+                        model.normals.push(Normal { normal: normals[face_index_triplet.n.unwrap() - 1] });
                     }
 
                     mapped_triplets.insert(face_index_triplet, index);
@@ -190,6 +222,18 @@ impl ObjModel {
         }
 
         return Ok(model);
+    }
+
+    pub fn gen_buffers(&mut self, display: &glium::Display) {
+        self.buffers.vertices = Some(glium::VertexBuffer::new(display, &self.vertices).unwrap());
+        self.buffers.indices = Some(glium::IndexBuffer::new(display, glium::index::PrimitiveType::TrianglesList, &self.indices).unwrap());
+
+        if !self.normals.is_empty() {
+            self.buffers.normals = Some(glium::VertexBuffer::new(display, &self.normals).unwrap());
+        }
+        if !self.uvs.is_empty() {
+            self.buffers.uvs = Some(glium::VertexBuffer::new(display, &self.uvs).unwrap());
+        }
     }
 
     fn parse_face_line(tokens: &Vec<&str>) -> Vec<FaceIndexTriplet> {
