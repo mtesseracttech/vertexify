@@ -16,16 +16,17 @@ pub struct ObjModel {
     indices: Vec<u32>,
     vertices: Vec<Vertex>,
     normals: Vec<Normal>,
-    uvs: Vec<UV>,
-    pub buffers: OpenGLBuffers,
+    tex_coords: Vec<UV>,
 }
 
 #[derive(Debug)]
-pub struct OpenGLBuffers {
-    pub indices: Option<glium::IndexBuffer<u32>>,
-    pub vertices: Option<glium::VertexBuffer<Vertex>>,
-    pub normals: Option<glium::VertexBuffer<Normal>>,
-    pub uvs: Option<glium::VertexBuffer<UV>>,
+pub struct GliumBuffers {
+    pub indices: glium::IndexBuffer<u32>,
+    pub vertices: glium::VertexBuffer<Vertex>,
+    pub normals: glium::VertexBuffer<Normal>,
+    pub tex_coords: glium::VertexBuffer<UV>,
+    pub has_normals: bool,
+    pub has_tex_coords: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -144,24 +145,12 @@ impl ObjModel {
                                     //f v1/vt1/vn1 v2/vt2/vn2 v3/vt3/vn3
                                     faces.append(&mut ObjModel::parse_face_line(&tokens));
                                 }
-                                "#" => {
-                                    //Comment, not much to do here
-                                }
-                                "mtllib" => {
-                                    //Material file location
-                                }
-                                "usemtl" => {
-                                    //Use material for the element following this statement
-                                }
-                                "o" => {
-                                    //Object name
-                                }
-                                "g" => {
-                                    //Group name
-                                }
-                                "s" => {
-                                    //Smoothing enable/disable for smoothing group
-                                }
+                                "#" => { /*Comment, not much to do here*/ }
+                                "mtllib" => { /*Material file location*/ }
+                                "usemtl" => { /*Use material for the element following this statement*/ }
+                                "o" => { /*Object name*/ }
+                                "g" => { /*Group name*/ }
+                                "s" => { /*Smoothing enable/disable for smoothing group*/ }
                                 token => {
                                     return Err(ModelLoadingError {
                                         file_path: file_path.to_string(),
@@ -188,13 +177,7 @@ impl ObjModel {
             indices: Vec::new(),
             vertices: Vec::new(),
             normals: Vec::new(),
-            uvs: Vec::new(),
-            buffers: OpenGLBuffers {
-                indices: None,
-                vertices: None,
-                normals: None,
-                uvs: None,
-            },
+            tex_coords: Vec::new(),
         };
 
         let mut mapped_triplets: HashMap<FaceIndexTriplet, u32> = HashMap::new();
@@ -209,7 +192,7 @@ impl ObjModel {
                     model.vertices.push(Vertex { position: vertices[face_index_triplet.v - 1] });
 
                     if face_index_triplet.uv.is_some() {
-                        model.uvs.push(UV { tex_coords: uvs[face_index_triplet.uv.unwrap() - 1] });
+                        model.tex_coords.push(UV { tex_coords: uvs[face_index_triplet.uv.unwrap() - 1] });
                     }
                     if face_index_triplet.n.is_some() {
                         model.normals.push(Normal { normal: normals[face_index_triplet.n.unwrap() - 1] });
@@ -288,30 +271,28 @@ impl ObjModel {
         }
     }
 
-    pub fn gen_buffers(&mut self, display: &glium::Display) {
-        self.buffers.vertices = Some(glium::VertexBuffer::new(display, &self.vertices).unwrap());
-        self.buffers.indices = Some(glium::IndexBuffer::new(display, glium::index::PrimitiveType::TrianglesList, &self.indices).unwrap());
-
-        if !self.normals.is_empty() {
-            self.buffers.normals = Some(glium::VertexBuffer::new(display, &self.normals).unwrap());
-        }
-        if !self.uvs.is_empty() {
-            self.buffers.uvs = Some(glium::VertexBuffer::new(display, &self.uvs).unwrap());
+    pub fn gen_glium_buffer(&self, display: &glium::Display) -> GliumBuffers {
+        GliumBuffers {
+            indices: glium::IndexBuffer::new(display, glium::index::PrimitiveType::TrianglesList, &self.indices).unwrap(),
+            vertices: glium::VertexBuffer::new(display, &self.vertices).unwrap(),
+            normals: glium::VertexBuffer::new(display, &self.normals).unwrap(),
+            tex_coords: glium::VertexBuffer::new(display, &self.tex_coords).unwrap(),
+            has_normals: !self.normals.is_empty(),
+            has_tex_coords: !self.tex_coords.is_empty(),
         }
     }
+}
 
+impl GliumBuffers {
     pub fn draw<U>(&self, target: &mut glium::Frame, program: &glium::Program, uniforms: &U, draw_params: &glium::DrawParameters) where U: glium::uniforms::Uniforms {
-        let has_uvs = !self.uvs.is_empty();
-        let has_normals = !self.normals.is_empty();
-
-        if has_uvs && has_normals {
-            target.draw((&self.buffers.vertices.unwrap(), &self.buffers.normals.unwrap(), &self.buffers.uvs.unwrap()), &self.buffers.indices.unwrap(), program, uniforms, draw_params).unwrap();
-        } else if has_uvs && !has_normals {
-            target.draw((&self.buffers.vertices.unwrap(), &self.buffers.uvs.unwrap()), &self.buffers.indices.unwrap(), program, uniforms, draw_params).unwrap();
-        } else if !has_uvs && has_normals {
-            target.draw((&self.buffers.vertices.unwrap(), &self.buffers.normals.unwrap()), &self.buffers.indices.unwrap(), program, uniforms, draw_params).unwrap();
+        if self.has_tex_coords && self.has_normals {
+            target.draw((&self.vertices, &self.normals, &self.tex_coords), &self.indices, program, uniforms, draw_params).unwrap();
+        } else if self.has_tex_coords && !self.has_normals {
+            target.draw((&self.vertices, &self.tex_coords), &self.indices, program, uniforms, draw_params).unwrap();
+        } else if !self.has_tex_coords && self.has_normals {
+            target.draw((&self.vertices, &self.normals), &self.indices, program, uniforms, draw_params).unwrap();
         } else {
-            target.draw(&self.buffers.vertices.unwrap(), &self.buffers.indices.unwrap(), program, uniforms, draw_params).unwrap();
+            target.draw(&self.vertices, &self.indices, program, uniforms, draw_params).unwrap();
         }
     }
 }

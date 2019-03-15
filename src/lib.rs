@@ -19,8 +19,8 @@ mod tests {
         let context = glutin::ContextBuilder::new().with_depth_buffer(24);
         let display = glium::Display::new(window, context, &events_loop).unwrap();
 
-        let mut teapot = ObjModel::load_from_file("res/teapot.obj").unwrap();
-        teapot.gen_buffers(&display);
+        let mut teapot_model = ObjModel::load_from_file("res/teapot.obj").unwrap();
+        let teapot = teapot_model.gen_glium_buffer(&display);
         println!("{:?}", teapot);
     }
 
@@ -31,8 +31,8 @@ mod tests {
         let context = glutin::ContextBuilder::new().with_depth_buffer(24);
         let display = glium::Display::new(window, context, &events_loop).unwrap();
 
-        let mut quad = ObjModel::load_from_file("res/quad.obj").unwrap();
-        quad.gen_buffers(&display);
+        let mut quad_model = ObjModel::load_from_file("res/quad.obj").unwrap();
+        let quad = quad_model.gen_glium_buffer(&display);
         println!("{:?}", quad);
     }
 }
