@@ -2,15 +2,13 @@
 extern crate glium;
 extern crate straal;
 
-
-pub use models::*;
 pub use models::ObjModel;
 
 pub mod models;
 
 #[cfg(test)]
 mod tests {
-    use glium::{glutin, Surface};
+    use glium::glutin;
 
     use super::models::*;
 

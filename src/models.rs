@@ -7,6 +7,8 @@ use std::io::BufRead;
 use std::io::BufReader;
 use std::vec::*;
 
+use glium::Surface;
+
 use super::*;
 
 #[derive(Debug)]
@@ -15,7 +17,7 @@ pub struct ObjModel {
     vertices: Vec<Vertex>,
     normals: Vec<Normal>,
     uvs: Vec<UV>,
-    buffers: OpenGLBuffers,
+    pub buffers: OpenGLBuffers,
 }
 
 #[derive(Debug)]
@@ -224,18 +226,6 @@ impl ObjModel {
         return Ok(model);
     }
 
-    pub fn gen_buffers(&mut self, display: &glium::Display) {
-        self.buffers.vertices = Some(glium::VertexBuffer::new(display, &self.vertices).unwrap());
-        self.buffers.indices = Some(glium::IndexBuffer::new(display, glium::index::PrimitiveType::TrianglesList, &self.indices).unwrap());
-
-        if !self.normals.is_empty() {
-            self.buffers.normals = Some(glium::VertexBuffer::new(display, &self.normals).unwrap());
-        }
-        if !self.uvs.is_empty() {
-            self.buffers.uvs = Some(glium::VertexBuffer::new(display, &self.uvs).unwrap());
-        }
-    }
-
     fn parse_face_line(tokens: &Vec<&str>) -> Vec<FaceIndexTriplet> {
         let triplet_vec: Vec<&str> = tokens.iter().skip(1).flat_map(|s: &&str| s.split("/")).collect();
         let mut parsed = triplet_vec.iter().flat_map(|s: &&str| s.parse());
@@ -295,6 +285,33 @@ impl ObjModel {
                 }
             }
             _ => panic!("Unknown face triplet type encountered")
+        }
+    }
+
+    pub fn gen_buffers(&mut self, display: &glium::Display) {
+        self.buffers.vertices = Some(glium::VertexBuffer::new(display, &self.vertices).unwrap());
+        self.buffers.indices = Some(glium::IndexBuffer::new(display, glium::index::PrimitiveType::TrianglesList, &self.indices).unwrap());
+
+        if !self.normals.is_empty() {
+            self.buffers.normals = Some(glium::VertexBuffer::new(display, &self.normals).unwrap());
+        }
+        if !self.uvs.is_empty() {
+            self.buffers.uvs = Some(glium::VertexBuffer::new(display, &self.uvs).unwrap());
+        }
+    }
+
+    pub fn draw<U>(self, target: &mut glium::Frame, program: &glium::Program, uniforms: &U, draw_params: &glium::DrawParameters) where U: glium::uniforms::Uniforms {
+        let has_uvs = !self.uvs.is_empty();
+        let has_normals = !self.normals.is_empty();
+
+        if has_uvs && has_normals {
+            target.draw((&self.buffers.vertices.unwrap(), &self.buffers.normals.unwrap(), &self.buffers.uvs.unwrap()), &self.buffers.indices.unwrap(), program, uniforms, draw_params).unwrap();
+        } else if has_uvs && !has_normals {
+            target.draw((&self.buffers.vertices.unwrap(), &self.buffers.uvs.unwrap()), &self.buffers.indices.unwrap(), program, uniforms, draw_params).unwrap();
+        } else if !has_uvs && has_normals {
+            target.draw((&self.buffers.vertices.unwrap(), &self.buffers.normals.unwrap()), &self.buffers.indices.unwrap(), program, uniforms, draw_params).unwrap();
+        } else {
+            target.draw(&self.buffers.vertices.unwrap(), &self.buffers.indices.unwrap(), program, uniforms, draw_params).unwrap();
         }
     }
 }
