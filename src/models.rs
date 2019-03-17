@@ -126,7 +126,7 @@ impl ObjModel {
                                         x: parsed.next().unwrap(),
                                         y: parsed.next().unwrap(),
                                         z: parsed.next().unwrap(),
-                                    });
+                                    }.normalized());
                                 }
                                 "vt" => {
                                     //Parse vertex texture coordinate
