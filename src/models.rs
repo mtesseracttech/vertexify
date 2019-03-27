@@ -31,19 +31,19 @@ pub struct GliumBuffers {
 
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
-    position: straal::Vec3,
+    position: straal::Vec3n,
 }
 implement_vertex!(Vertex, position);
 
 #[derive(Copy, Clone, Debug)]
 pub struct Normal {
-    normal: straal::Vec3,
+    normal: straal::Vec3n,
 }
 implement_vertex!(Normal, normal);
 
 #[derive(Copy, Clone, Debug)]
 pub struct UV {
-    tex_coords: straal::Vec2,
+    tex_coords: straal::Vec2n,
 }
 implement_vertex!(UV, tex_coords);
 
@@ -95,9 +95,9 @@ impl ObjModel {
             }
         };
 
-        let mut vertices: Vec<straal::Vec3> = Vec::new();
-        let mut normals: Vec<straal::Vec3> = Vec::new();
-        let mut uvs: Vec<straal::Vec2> = Vec::new();
+        let mut vertices: Vec<straal::Vec3n> = Vec::new();
+        let mut normals: Vec<straal::Vec3n> = Vec::new();
+        let mut uvs: Vec<straal::Vec2n> = Vec::new();
         let mut faces: Vec<FaceIndexTriplet> = Vec::new();
 
         let mut line_no = 1;
@@ -112,7 +112,7 @@ impl ObjModel {
                                     //Parse vertex
                                     //v x y z
                                     let mut parsed = tokens.iter().skip(1).flat_map(|s: &&str| s.parse());
-                                    vertices.push(straal::Vec3 {
+                                    vertices.push(straal::Vec3n {
                                         x: parsed.next().unwrap(),
                                         y: parsed.next().unwrap(),
                                         z: parsed.next().unwrap(),
@@ -122,7 +122,7 @@ impl ObjModel {
                                     //Parse vertex normal
                                     //vn x y z
                                     let mut parsed = tokens.iter().skip(1).flat_map(|s: &&str| s.parse());
-                                    normals.push(straal::Vec3 {
+                                    normals.push(straal::Vec3n {
                                         x: parsed.next().unwrap(),
                                         y: parsed.next().unwrap(),
                                         z: parsed.next().unwrap(),
@@ -132,7 +132,7 @@ impl ObjModel {
                                     //Parse vertex texture coordinate
                                     //vt x y
                                     let mut parsed = tokens.iter().skip(1).flat_map(|s: &&str| s.parse());
-                                    uvs.push(straal::Vec2 {
+                                    uvs.push(straal::Vec2n {
                                         x: parsed.next().unwrap(),
                                         y: parsed.next().unwrap(),
                                     });
