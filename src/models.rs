@@ -8,6 +8,7 @@ use std::io::BufReader;
 use std::vec::*;
 
 use glium::Surface;
+use straal::FloatType;
 
 use super::*;
 
@@ -112,7 +113,8 @@ impl ObjModel {
                                     //Parse vertex
                                     //v x y z
                                     let mut parsed = tokens.iter().skip(1).flat_map(|s: &&str| s.parse());
-                                    vertices.push(straal::Vec3n {
+
+                                    vertices.push(straal::Vec3 {
                                         x: parsed.next().unwrap(),
                                         y: parsed.next().unwrap(),
                                         z: parsed.next().unwrap(),
@@ -122,7 +124,7 @@ impl ObjModel {
                                     //Parse vertex normal
                                     //vn x y z
                                     let mut parsed = tokens.iter().skip(1).flat_map(|s: &&str| s.parse());
-                                    normals.push(straal::Vec3n {
+                                    normals.push(straal::Vec3 {
                                         x: parsed.next().unwrap(),
                                         y: parsed.next().unwrap(),
                                         z: parsed.next().unwrap(),
@@ -132,7 +134,7 @@ impl ObjModel {
                                     //Parse vertex texture coordinate
                                     //vt x y
                                     let mut parsed = tokens.iter().skip(1).flat_map(|s: &&str| s.parse());
-                                    uvs.push(straal::Vec2n {
+                                    uvs.push(straal::Vec2 {
                                         x: parsed.next().unwrap(),
                                         y: parsed.next().unwrap(),
                                     });
