@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error;
 use std::fmt;
 use std::fs::File;
@@ -9,6 +9,7 @@ use std::vec::*;
 
 use glium::Surface;
 use straal::FloatType;
+use straal::vec3::Vec3;
 
 use super::*;
 
@@ -271,6 +272,59 @@ impl ObjModel {
             }
             _ => panic!("Unknown face triplet type encountered")
         }
+    }
+
+    pub fn generate_normals(&mut self) {
+        let mut normals = Vec::with_capacity(self.indices.len());
+        let mut i = 0;
+        while i < self.indices.len() {
+            let v0 = self.vertices[self.indices[i] as usize].position;
+            let v1 = self.vertices[self.indices[i + 1] as usize].position;
+            let v2 = self.vertices[self.indices[i + 2] as usize].position;
+            let n = ObjModel::three_vertices_to_normal(v0, v1, v2);
+            normals.push(n);
+            normals.push(n);
+            normals.push(n);
+            i += 3;
+        }
+
+        let mut normals_map = HashMap::with_capacity(self.vertices.len());
+
+        for pair in self.indices.iter().zip(normals.iter()) {
+            if !normals_map.contains_key(pair.0) {
+                normals_map.insert(*pair.0, Vec::new());
+            }
+            normals_map.get_mut(pair.0).unwrap().push(*pair.1);
+        }
+
+        let mut final_normals = vec![Normal { normal: Vec3::zero() }; self.vertices.len()];
+        //let mut final_normals = Vec::with_capacity(self.vertices.len());
+        for normal_count_pair in normals_map {
+            //println!("Normals to be combined: {}", normal_count_pair.1.len());
+            //println!("Input normals: ");
+            for input_normal in &normal_count_pair.1 {
+                println!("{}", input_normal)
+            }
+            let mut proper_normal = Vec3::zero();
+            for partial_normal in normal_count_pair.1 {
+                proper_normal += partial_normal;
+            }
+            proper_normal = proper_normal.normalized();
+            //println!("Proper normal: {}", proper_normal);
+            final_normals[normal_count_pair.0 as usize] = Normal { normal: proper_normal };
+        }
+        //println!("Vertex size: {}", self.vertices.len());
+        //println!("Normal size: {}", final_normals.len());
+
+        self.normals = final_normals;
+    }
+
+
+    //v0 is the point from where the normal is calculated
+    fn three_vertices_to_normal(v0: straal::Vec3n, v1: straal::Vec3n, v2: straal::Vec3n) -> straal::Vec3n {
+        let w0 = (v1 - v0).normalized();
+        let w1 = (v2 - v0).normalized();
+        w0.cross(w1).normalized()
     }
 
     pub fn gen_glium_buffer(&self, display: &glium::Display) -> GliumBuffers {
