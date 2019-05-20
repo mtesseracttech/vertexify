@@ -146,8 +146,8 @@ mod tests {
 
             target.clear_color_and_depth((0.01, 0.01, 0.01, 1.0), 1.0);
 
-            //teapot.draw(&mut target, &normal_colors_program, &uniforms, &draw_parameters);
-            //teapot.draw(&mut target, &normal_lines_program, &uniforms, &draw_parameters);
+            teapot.draw(&mut target, &normal_colors_program, &uniforms, &draw_parameters);
+            teapot.draw(&mut target, &normal_lines_program, &uniforms, &draw_parameters);
 
             target.finish().unwrap();
 

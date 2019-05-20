@@ -298,24 +298,14 @@ impl ObjModel {
         }
 
         let mut final_normals = vec![Normal { normal: Vec3::zero() }; self.vertices.len()];
-        //let mut final_normals = Vec::with_capacity(self.vertices.len());
         for normal_count_pair in normals_map {
-            //println!("Normals to be combined: {}", normal_count_pair.1.len());
-            //println!("Input normals: ");
-            for input_normal in &normal_count_pair.1 {
-                println!("{}", input_normal)
-            }
             let mut proper_normal = Vec3::zero();
             for partial_normal in normal_count_pair.1 {
                 proper_normal += partial_normal;
             }
             proper_normal = proper_normal.normalized();
-            //println!("Proper normal: {}", proper_normal);
             final_normals[normal_count_pair.0 as usize] = Normal { normal: proper_normal };
         }
-        //println!("Vertex size: {}", self.vertices.len());
-        //println!("Normal size: {}", final_normals.len());
-
         self.normals = final_normals;
     }
 
